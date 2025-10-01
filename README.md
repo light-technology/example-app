@@ -4,6 +4,8 @@ A React example application showcasing integration with the Light API from docs.
 
 This app shows an example of how to easy it can be to integrate the Light API into your existing application. The app framework used here is Next.js + React. A minimal set of backend APIs are implemented with Next.js and the bulk of the integration is built using the [Light APIs](https://docs.light.dev) through the frontend as well as pre-built embedded flows.
 
+View a deployed version of the app at https://example-app.light.dev
+
 ## Features
 
 - **Frontend**: Next.js + React + TypeScript + Tailwind CSS
