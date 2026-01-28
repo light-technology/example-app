@@ -469,7 +469,7 @@ describe('energyChartUtils', () => {
       const result = getDataCompletenessInfo(monthlyResponse, 'monthly');
 
       expect(result).toEqual({
-        totalDays: 12, // 12 months in a year
+        totalDays: 2, // 12 months in a year
         daysWithData: 2,
         isCurrentPeriod: true, // Current year
         lastDataDay: 'February',

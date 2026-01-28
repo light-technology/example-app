@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { renderHook, act } from '@testing-library/react';
 import { useEnergyUsage } from './useEnergyUsage';
 import { ApiService } from '../services/api';
@@ -34,18 +35,19 @@ describe('useEnergyUsage', () => {
   });
 
   it('should fetch monthly data on mount when viewType is monthly', async () => {
+    const monthlyData = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      .map((month) => ({
+        month,
+        consumption: '100.0',
+        generation: '0',
+        vehicle_charging: '0',
+        eligible_vehicle_charging: '0',
+      })
+    );
     const mockMonthlyData: MonthlyUsageResponse = {
-      year: 2025,
+      year: new Date().getFullYear(),
       units: 'kWh',
-      months: [
-        {
-          month: 'January',
-          consumption: '100.5',
-          generation: '0',
-          vehicle_charging: '0',
-          eligible_vehicle_charging: '0',
-        },
-      ],
+      months: monthlyData
     };
 
     mockApiService.getMonthlyUsage.mockResolvedValue(mockMonthlyData);
@@ -62,9 +64,11 @@ describe('useEnergyUsage', () => {
 
     expect(mockApiService.getMonthlyUsage).toHaveBeenCalledWith(
       defaultProps.accountUuid,
-      defaultProps.locationUuid
+      defaultProps.locationUuid,
+      "2026",
     );
-    expect(result.current.monthlyData).toEqual(mockMonthlyData);
+    expect(result.current.monthlyData?.months).toEqual(mockMonthlyData.months);
+    expect(result.current.monthlyData?.units).toBe('kWh');
     expect(result.current.dailyData).toBe(null);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.error).toBe(null);
@@ -253,7 +257,7 @@ describe('useEnergyUsage', () => {
 
   it('should fetch new data when dependencies change', async () => {
     const mockMonthlyData: MonthlyUsageResponse = {
-      year: 2025,
+      year: new Date().getFullYear(),
       units: 'kWh',
       months: [],
     };
@@ -284,7 +288,8 @@ describe('useEnergyUsage', () => {
     expect(mockApiService.getMonthlyUsage).toHaveBeenCalledTimes(2);
     expect(mockApiService.getMonthlyUsage).toHaveBeenLastCalledWith(
       'new-account-uuid',
-      defaultProps.locationUuid
+      defaultProps.locationUuid,
+      `${new Date().getFullYear()}`
     );
   });
 

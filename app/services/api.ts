@@ -192,11 +192,12 @@ export class ApiService {
 
   static async getMonthlyUsage(
     accountUuid: string,
-    locationUuid: string
+    locationUuid: string,
+    year: string, 
   ): Promise<MonthlyUsageResponse> {
     return this.makeAuthenticatedRequest<MonthlyUsageResponse>(
       accountUuid,
-      `/account/locations/${locationUuid}/usage/monthly`
+      `/account/locations/${locationUuid}/usage/monthly?year=${year}`
     );
   }
 

@@ -1,8 +1,8 @@
 import {
   MonthlyUsageDay,
   DailyUsageDay,
-  MonthlyUsageResponse,
   DailyUsageResponse,
+  MonthlyUsageSummary,
 } from '../types/energy';
 
 export interface ChartDataPoint {
@@ -172,7 +172,7 @@ export function formatMonthlyChartData(
  * Get data completeness information for display
  */
 export function getDataCompletenessInfo(
-  data: MonthlyUsageResponse | DailyUsageResponse | null,
+  data: MonthlyUsageSummary| DailyUsageResponse | null,
   viewType: 'monthly' | 'daily',
   selectedMonth?: number,
   selectedYear?: number
@@ -186,12 +186,12 @@ export function getDataCompletenessInfo(
   }
 
   if (viewType === 'monthly') {
-    const monthlyData = data as MonthlyUsageResponse;
-    const isCurrentPeriod = isCurrentYear(monthlyData.year);
+    const monthlyData = data as MonthlyUsageSummary;
+    const isCurrentPeriod = true; //isCurrentYear(monthlyData.year);
     const lastDataMonth = getLastDataMonth(monthlyData.months);
 
     return {
-      totalDays: 12, // 12 months in a year
+      totalDays: monthlyData.months?.length || 0,
       daysWithData: monthlyData.months?.length || 0,
       isCurrentPeriod,
       lastDataDay: lastDataMonth || undefined,
@@ -217,7 +217,7 @@ export function getDataCompletenessInfo(
  * Format chart data based on view type
  */
 export function formatChartData(
-  data: MonthlyUsageResponse | DailyUsageResponse | null,
+  data: MonthlyUsageSummary | DailyUsageResponse | null,
   viewType: 'monthly' | 'daily',
   selectedMonth?: number,
   selectedYear?: number
@@ -225,7 +225,7 @@ export function formatChartData(
   if (!data) return [];
 
   if (viewType === 'monthly') {
-    const monthlyData = data as MonthlyUsageResponse;
+    const monthlyData = data as MonthlyUsageSummary;
     return formatMonthlyChartData(monthlyData.months);
   } else {
     const dailyData = data as DailyUsageResponse;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ApiService } from '../services/api';
-import { MonthlyUsageResponse, DailyUsageResponse } from '../types/energy';
+import { MonthlyUsageResponse, DailyUsageResponse, MonthlyUsageSummary } from '../types/energy';
 
 export type ViewType = 'monthly' | 'daily';
 
@@ -13,11 +13,42 @@ interface UseEnergyUsageProps {
 }
 
 interface UseEnergyUsageReturn {
-  monthlyData: MonthlyUsageResponse | null;
+  monthlyData: MonthlyUsageSummary | null;
   dailyData: DailyUsageResponse | null;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
+}
+
+async function trailingNMonthsSummary(accountUuid: string, locationUuid: string, n: number): Promise<MonthlyUsageSummary> {
+  let monthlyDataForCurrentYear: MonthlyUsageResponse = await ApiService.getMonthlyUsage(
+    accountUuid,
+    locationUuid,
+    new Date().getFullYear().toString()
+  );
+  const allMonths: MonthlyUsageResponse[] = [monthlyDataForCurrentYear];
+  for (let numMonths = monthlyDataForCurrentYear.months.length;
+    // while we have more months to fetch _and_ have more months being returned
+    numMonths < n && monthlyDataForCurrentYear.months.length > 0;
+    numMonths += monthlyDataForCurrentYear.months.length) {
+    const previousYear = (monthlyDataForCurrentYear.year - 1).toString();
+    monthlyDataForCurrentYear = await ApiService.getMonthlyUsage(
+      accountUuid,
+      locationUuid,
+      previousYear
+    );
+    allMonths.push(monthlyDataForCurrentYear);
+  }
+
+  // to get the trailing N months,
+  // we need to reverse the months array and take the last N months
+  const monthsReversed = allMonths
+    .reverse()
+    .flatMap(response => response.months);
+  return {
+    units: allMonths[0]?.units || 'kWh',
+    months: monthsReversed.slice(-n)
+  }
 }
 
 export function useEnergyUsage({
@@ -27,7 +58,7 @@ export function useEnergyUsage({
   selectedMonth,
   selectedYear,
 }: UseEnergyUsageProps): UseEnergyUsageReturn {
-  const [monthlyData, setMonthlyData] = useState<MonthlyUsageResponse | null>(
+  const [monthlyData, setMonthlyData] = useState<MonthlyUsageSummary | null>(
     null
   );
   const [dailyData, setDailyData] = useState<DailyUsageResponse | null>(null);
@@ -38,7 +69,7 @@ export function useEnergyUsage({
     try {
       setIsLoading(true);
       setError(null);
-      const data = await ApiService.getMonthlyUsage(accountUuid, locationUuid);
+      const data = await trailingNMonthsSummary(accountUuid, locationUuid, 12);
       setMonthlyData(data);
     } catch (err) {
       setError('Failed to load monthly usage data');
