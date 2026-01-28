@@ -22,7 +22,7 @@ interface UseEnergyUsageReturn {
 
 // starting from the current year, fetch monthly usage by year
 // going back in time until we have at least N months of data,
-// then return the last N months as a MonthlyUsageSummary 
+// then return the last N months as a MonthlyUsageSummary
 export async function trailingNMonthsSummary(accountUuid: string, locationUuid: string, numMonths: number): Promise<MonthlyUsageSummary> {
   let monthlyDataResponse: MonthlyUsageResponse = await ApiService.getMonthlyUsage(
     accountUuid,
@@ -44,7 +44,8 @@ export async function trailingNMonthsSummary(accountUuid: string, locationUuid: 
   }
 
   // to get the trailing N months,
-  // we need to reverse the months array and take the last N months
+  // we need to reverse our responses (which came in newest to oldest),
+  // flatten them, and then take the last N months
   const monthsReversed = allMonths
     .reverse()
     .flatMap(response => response.months);
