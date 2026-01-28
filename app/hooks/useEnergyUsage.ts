@@ -20,24 +20,27 @@ interface UseEnergyUsageReturn {
   refetch: () => void;
 }
 
-async function trailingNMonthsSummary(accountUuid: string, locationUuid: string, n: number): Promise<MonthlyUsageSummary> {
-  let monthlyDataForCurrentYear: MonthlyUsageResponse = await ApiService.getMonthlyUsage(
+// starting from the current year, fetch monthly usage by year
+// going back in time until we have at least N months of data,
+// then return the last N months as a MonthlyUsageSummary 
+export async function trailingNMonthsSummary(accountUuid: string, locationUuid: string, numMonths: number): Promise<MonthlyUsageSummary> {
+  let monthlyDataResponse: MonthlyUsageResponse = await ApiService.getMonthlyUsage(
     accountUuid,
     locationUuid,
     new Date().getFullYear().toString()
   );
-  const allMonths: MonthlyUsageResponse[] = [monthlyDataForCurrentYear];
-  for (let numMonths = monthlyDataForCurrentYear.months.length;
+  const allMonths: MonthlyUsageResponse[] = [monthlyDataResponse];
+  for (let numMonthsFetched = monthlyDataResponse.months.length;
     // while we have more months to fetch _and_ have more months being returned
-    numMonths < n && monthlyDataForCurrentYear.months.length > 0;
-    numMonths += monthlyDataForCurrentYear.months.length) {
-    const previousYear = (monthlyDataForCurrentYear.year - 1).toString();
-    monthlyDataForCurrentYear = await ApiService.getMonthlyUsage(
+    numMonthsFetched < numMonths && monthlyDataResponse.previous;
+    numMonthsFetched += monthlyDataResponse.months.length) {
+    const previousYear = (monthlyDataResponse.year - 1).toString();
+    monthlyDataResponse = await ApiService.getMonthlyUsage(
       accountUuid,
       locationUuid,
       previousYear
     );
-    allMonths.push(monthlyDataForCurrentYear);
+    allMonths.push(monthlyDataResponse);
   }
 
   // to get the trailing N months,
@@ -47,7 +50,7 @@ async function trailingNMonthsSummary(accountUuid: string, locationUuid: string,
     .flatMap(response => response.months);
   return {
     units: allMonths[0]?.units || 'kWh',
-    months: monthsReversed.slice(-n)
+    months: monthsReversed.slice(-numMonths )
   }
 }
 

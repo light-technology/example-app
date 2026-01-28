@@ -187,7 +187,8 @@ export function getDataCompletenessInfo(
 
   if (viewType === 'monthly') {
     const monthlyData = data as MonthlyUsageSummary;
-    const isCurrentPeriod = true; //isCurrentYear(monthlyData.year);
+    // currently unused for monthly view.
+    const isCurrentPeriod = true;
     const lastDataMonth = getLastDataMonth(monthlyData.months);
 
     return {
