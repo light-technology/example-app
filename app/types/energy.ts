@@ -14,6 +14,11 @@ export interface DailyUsageDay {
   eligible_vehicle_charging: string;
 }
 
+export interface MonthlyUsageSummary {
+  units: string;
+  months: MonthlyUsageDay[];
+}
+
 export interface MonthlyUsageResponse {
   year: number;
   units: string;

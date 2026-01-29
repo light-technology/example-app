@@ -4,12 +4,12 @@ import React from 'react';
 import { ViewType } from '../../../hooks/useEnergyUsage';
 import { DataCompletenessInfo } from '../../../utils/energyChartUtils';
 import {
-  MonthlyUsageResponse,
   DailyUsageResponse,
+  MonthlyUsageSummary,
 } from '../../../types/energy';
 
 interface ChartInfoProps {
-  currentData: MonthlyUsageResponse | DailyUsageResponse | null;
+  currentData: MonthlyUsageSummary | DailyUsageResponse | null;
   chartDataLength: number;
   viewType: ViewType;
   completenessInfo: DataCompletenessInfo;
@@ -51,6 +51,7 @@ const ChartInfo: React.FC<ChartInfoProps> = ({
           Showing {viewType} usage data in {currentData.units}
           {viewType === 'daily' &&
             ` for ${months[selectedMonth - 1]} ${selectedYear}`}
+          {viewType === 'monthly' && ` for Trailing ${chartDataLength} months`}
         </p>
       </div>
 

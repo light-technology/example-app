@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ApiService } from '../services/api';
-import { MonthlyUsageResponse, DailyUsageResponse } from '../types/energy';
+import { MonthlyUsageResponse, DailyUsageResponse, MonthlyUsageSummary } from '../types/energy';
 
 export type ViewType = 'monthly' | 'daily';
 
@@ -13,11 +13,46 @@ interface UseEnergyUsageProps {
 }
 
 interface UseEnergyUsageReturn {
-  monthlyData: MonthlyUsageResponse | null;
+  monthlyData: MonthlyUsageSummary | null;
   dailyData: DailyUsageResponse | null;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
+}
+
+// starting from the current year, fetch monthly usage by year
+// going back in time until we have at least N months of data,
+// then return the last N months as a MonthlyUsageSummary
+export async function trailingNMonthsSummary(accountUuid: string, locationUuid: string, numMonths: number): Promise<MonthlyUsageSummary> {
+  let monthlyDataResponse: MonthlyUsageResponse = await ApiService.getMonthlyUsage(
+    accountUuid,
+    locationUuid,
+    new Date().getFullYear().toString()
+  );
+  const allMonths: MonthlyUsageResponse[] = [monthlyDataResponse];
+  for (let numMonthsFetched = monthlyDataResponse.months.length;
+    // while we have more months to fetch _and_ have more months being returned
+    numMonthsFetched < numMonths && monthlyDataResponse.previous;
+    numMonthsFetched += monthlyDataResponse.months.length) {
+    const previousYear = (monthlyDataResponse.year - 1).toString();
+    monthlyDataResponse = await ApiService.getMonthlyUsage(
+      accountUuid,
+      locationUuid,
+      previousYear
+    );
+    allMonths.push(monthlyDataResponse);
+  }
+
+  // to get the trailing N months,
+  // we need to reverse our responses (which came in newest to oldest),
+  // flatten them, and then take the last N months
+  const monthsReversed = allMonths
+    .reverse()
+    .flatMap(response => response.months);
+  return {
+    units: allMonths[0]?.units || 'kWh',
+    months: monthsReversed.slice(-numMonths )
+  }
 }
 
 export function useEnergyUsage({
@@ -27,7 +62,7 @@ export function useEnergyUsage({
   selectedMonth,
   selectedYear,
 }: UseEnergyUsageProps): UseEnergyUsageReturn {
-  const [monthlyData, setMonthlyData] = useState<MonthlyUsageResponse | null>(
+  const [monthlyData, setMonthlyData] = useState<MonthlyUsageSummary | null>(
     null
   );
   const [dailyData, setDailyData] = useState<DailyUsageResponse | null>(null);
@@ -38,7 +73,7 @@ export function useEnergyUsage({
     try {
       setIsLoading(true);
       setError(null);
-      const data = await ApiService.getMonthlyUsage(accountUuid, locationUuid);
+      const data = await trailingNMonthsSummary(accountUuid, locationUuid, 12);
       setMonthlyData(data);
     } catch (err) {
       setError('Failed to load monthly usage data');

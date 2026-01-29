@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useEnergyUsage } from './useEnergyUsage';
+import { trailingNMonthsSummary, useEnergyUsage } from './useEnergyUsage';
 import { ApiService } from '../services/api';
 import { MonthlyUsageResponse, DailyUsageResponse } from '../types/energy';
 
@@ -34,18 +34,19 @@ describe('useEnergyUsage', () => {
   });
 
   it('should fetch monthly data on mount when viewType is monthly', async () => {
+    const monthlyData = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      .map((month) => ({
+        month,
+        consumption: '100.0',
+        generation: '0',
+        vehicle_charging: '0',
+        eligible_vehicle_charging: '0',
+      })
+    );
     const mockMonthlyData: MonthlyUsageResponse = {
-      year: 2025,
+      year: new Date().getFullYear(),
       units: 'kWh',
-      months: [
-        {
-          month: 'January',
-          consumption: '100.5',
-          generation: '0',
-          vehicle_charging: '0',
-          eligible_vehicle_charging: '0',
-        },
-      ],
+      months: monthlyData
     };
 
     mockApiService.getMonthlyUsage.mockResolvedValue(mockMonthlyData);
@@ -62,9 +63,11 @@ describe('useEnergyUsage', () => {
 
     expect(mockApiService.getMonthlyUsage).toHaveBeenCalledWith(
       defaultProps.accountUuid,
-      defaultProps.locationUuid
+      defaultProps.locationUuid,
+      "2026",
     );
-    expect(result.current.monthlyData).toEqual(mockMonthlyData);
+    expect(result.current.monthlyData?.months).toEqual(mockMonthlyData.months);
+    expect(result.current.monthlyData?.units).toBe('kWh');
     expect(result.current.dailyData).toBe(null);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.error).toBe(null);
@@ -253,7 +256,7 @@ describe('useEnergyUsage', () => {
 
   it('should fetch new data when dependencies change', async () => {
     const mockMonthlyData: MonthlyUsageResponse = {
-      year: 2025,
+      year: new Date().getFullYear(),
       units: 'kWh',
       months: [],
     };
@@ -284,7 +287,8 @@ describe('useEnergyUsage', () => {
     expect(mockApiService.getMonthlyUsage).toHaveBeenCalledTimes(2);
     expect(mockApiService.getMonthlyUsage).toHaveBeenLastCalledWith(
       'new-account-uuid',
-      defaultProps.locationUuid
+      defaultProps.locationUuid,
+      `${new Date().getFullYear()}`
     );
   });
 
@@ -371,5 +375,83 @@ describe('useEnergyUsage', () => {
 
     expect(result.current.error).toBe(null);
     expect(result.current.monthlyData).not.toBe(null);
+  });
+
+});
+
+describe('trailingNMonthsSummary', () => {
+  it('should refetch once to produce 15 months worth of data', async () => {
+    const mockMonthlyDataResponses: MonthlyUsageResponse[] = [];
+    for (let yearOffset = 0; yearOffset < 2; yearOffset++) {
+      const year = 2024 - yearOffset;
+      const months = Array.from({ length: 12 }, (_, i) => ({
+        month: new Date(year, i).toLocaleString('default', { month: 'long' }),
+        consumption: (100 + i).toString(),
+        generation: '0',
+        vehicle_charging: '0',
+        eligible_vehicle_charging: '0',
+      }));
+      mockMonthlyDataResponses.push({
+        year,
+        units: 'kWh',
+        months,
+        previous: 'non-empty-string-to-encourage-refetch'
+      });
+    }
+
+    mockApiService.getMonthlyUsage
+      .mockResolvedValueOnce(mockMonthlyDataResponses[0]) // 2024
+      .mockResolvedValueOnce(mockMonthlyDataResponses[1]); // 2023
+
+    const result = await trailingNMonthsSummary(
+      'test-account-uuid',
+      'test-location-uuid',
+      15
+    );
+
+    expect(mockApiService.getMonthlyUsage).toHaveBeenCalledTimes(2);
+    expect(result.months.length).toBe(15);
+    expect(result.months[0].month).toBe('October'); // 2023
+    expect(result.months[14].month).toBe('December'); // 2024
+    expect(result.units).toBe('kWh');
+  });
+  it('should try to fetch twice but only get 12 months of data if earlier year has no data', async () => {
+    const mockMonthlyDataResponses: MonthlyUsageResponse[] = [];
+    // 2024 has data
+    const months2024 = Array.from({ length: 12 }, (_, i) => ({
+      month: new Date(2024, i).toLocaleString('default', { month: 'long' }),
+      consumption: (100 + i).toString(),
+      generation: '0',
+      vehicle_charging: '0',
+      eligible_vehicle_charging: '0',
+    }));
+    mockMonthlyDataResponses.push({
+      year: 2024,
+      units: 'kWh',
+      months: months2024,
+      previous: 'non-empty-string-to-encourage-refetch'
+    });
+    // 2023 has no data
+    mockMonthlyDataResponses.push({
+      year: 2023,
+      units: 'kWh',
+      months: [],
+    });
+
+    mockApiService.getMonthlyUsage
+      .mockResolvedValueOnce(mockMonthlyDataResponses[0]) // 2024
+      .mockResolvedValueOnce(mockMonthlyDataResponses[1]); // 2023
+
+    const result = await trailingNMonthsSummary(
+      'test-account-uuid',
+      'test-location-uuid',
+      15
+    );
+
+    expect(mockApiService.getMonthlyUsage).toHaveBeenCalledTimes(2);
+    expect(result.months.length).toBe(12);
+    expect(result.months[0].month).toBe('January'); // 2024
+    expect(result.months[11].month).toBe('December'); // 2024
+    expect(result.units).toBe('kWh');
   });
 });
